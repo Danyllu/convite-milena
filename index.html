@@ -281,7 +281,7 @@
     <div class="section-kicker">Com carinho</div>
     <div class="section-title">Lista de Presentes</div>
     <p style="text-align:center; font-size:12.5px; opacity:0.75; margin-bottom:26px; line-height:1.6;">
-      Escolha um item, toque em "Presentear" e pague via PIX.<br>O item fica marcado para os próximos convidados verem.
+      Escolha um item, toque em "Presentear" para ver a chave PIX, e depois em "Já fiz o PIX" para confirmar.<br>O item só é descontado da lista após a confirmação.
     </p>
 
     <div id="gift-list"></div>
@@ -321,22 +321,23 @@
   }
 
   const GIFTS = [
-    { id: "valelook", name: "Vale Look", price: 120.00, qty: 5 },
-    { id: "fone", name: "Fone de Ouvido", price: 100.00, qty: 4 },
-    { id: "maquiagem", name: "Maquiagem", price: 130.00, qty: 4 },
-    { id: "livro", name: "Livro", price: 60.00, qty: 3 },
-    { id: "bolsafeminina", name: "Bolsa Feminina", price: 200.00, qty: 4 },
-    { id: "valemaquiagem", name: "Vale Maquiagem", price: 100.00, qty: 4 },
+    { id: "valelook", name: "Vale Look", price: 120.00, qty: 6 },
+    { id: "fone", name: "Fone de Ouvido", price: 100.00, qty: 6 },
+    { id: "maquiagem", name: "Maquiagem", price: 130.00, qty: 5 },
+    { id: "livro", name: "Livro", price: 60.00, qty: 4 },
+    { id: "bolsafeminina", name: "Bolsa Feminina", price: 200.00, qty: 6 },
+    { id: "valemaquiagem", name: "Vale Maquiagem", price: 100.00, qty: 5 },
     { id: "caixasom", name: "Caixa de Som", price: 100.00, qty: 4 },
     { id: "escovarotativa", name: "Escova Rotativa", price: 140.00, qty: 4 },
-    { id: "perfumefeminino", name: "Perfume Feminino", price: 180.00, qty: 4 },
-    { id: "bolsa", name: "Bolsa", price: 100.00, qty: 4 },
-    { id: "perfume", name: "Perfume", price: 150.00, qty: 4 },
+    { id: "perfumefeminino", name: "Perfume Feminino", price: 180.00, qty: 6 },
+    { id: "bolsa", name: "Bolsa", price: 100.00, qty: 6 },
+    { id: "perfume", name: "Perfume", price: 150.00, qty: 6 },
   ];
 
   const listEl = document.getElementById('gift-list');
   let reservations = {};
-  const claimedThisSession = new Set();
+  const openedThisSession = new Set();
+  const confirmedThisSession = new Set();
 
   function fmtBRL(v){
     return v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
@@ -348,7 +349,8 @@
       const taken = reservations[g.id] || 0;
       const remaining = Math.max(0, g.qty - taken);
       const soldOut = remaining <= 0;
-      const alreadyClaimedByMe = claimedThisSession.has(g.id);
+      const panelOpen = openedThisSession.has(g.id);
+      const confirmedByMe = confirmedThisSession.has(g.id);
       const card = document.createElement('div');
       card.className = 'gift-card';
       card.innerHTML = `
@@ -359,13 +361,15 @@
         <div class="gift-status show" style="color:${soldOut ? 'var(--rose)' : 'var(--gold-soft)'};">
           ${soldOut ? '💙 Todas as unidades já foram presenteadas — obrigada!' : `${remaining} de ${g.qty} disponíveis`}
         </div>
-        ${!soldOut ? `<button class="btn btn-mini" style="width:100%;" onclick="reserve('${g.id}')">Presentear este item</button>` : ''}
-        <div class="pix-panel ${alreadyClaimedByMe ? 'show' : ''}" id="pix-${g.id}">
+        ${!soldOut && !confirmedByMe ? `<button class="btn btn-mini" style="width:100%;" onclick="togglePanel('${g.id}')">Presentear este item</button>` : ''}
+        ${confirmedByMe ? `<div class="pix-note" style="margin-top:10px; color:var(--gold-soft);">💚 Pagamento confirmado! Muito obrigada pelo carinho.</div>` : ''}
+        <div class="pix-panel ${panelOpen && !confirmedByMe ? 'show' : ''}" id="pix-${g.id}">
           <div class="pix-row">
             <span>Chave PIX (telefone): <span class="pix-key">${PIX_KEY}</span></span>
             <button class="copy-btn" onclick="copyPix('${g.id}')">Copiar</button>
           </div>
-          <div class="pix-note">Valor sugerido: ${fmtBRL(g.price)}. Após o pagamento, esta unidade é descontada automaticamente da lista para os próximos convidados.</div>
+          <div class="pix-note">Valor sugerido: ${fmtBRL(g.price)}.</div>
+          <button class="btn btn-mini" style="width:100%; margin-top:12px; background:rgba(96,168,120,0.18); border-color:rgba(96,168,120,0.6); color:#bfe6cc;" onclick="confirmPayment('${g.id}')">Já fiz o PIX — confirmar</button>
         </div>
       `;
       listEl.appendChild(card);
@@ -382,17 +386,22 @@
     render();
   }
 
-  async function reserve(id){
-    if(claimedThisSession.has(id)){
-      const panel = document.getElementById('pix-' + id);
-      panel.classList.toggle('show');
-      return;
+  function togglePanel(id){
+    if(openedThisSession.has(id)){
+      openedThisSession.delete(id);
+    } else {
+      openedThisSession.add(id);
     }
+    render();
+  }
+
+  async function confirmPayment(id){
+    if(confirmedThisSession.has(id)) return;
     const gift = GIFTS.find(g => g.id === id);
     const taken = reservations[id] || 0;
-    if(taken >= gift.qty) return; // already sold out, safety check
+    if(taken >= gift.qty) { render(); return; } // already sold out, safety check
 
-    claimedThisSession.add(id);
+    confirmedThisSession.add(id);
     reservations[id] = taken + 1;
     try{
       await window.storage.set('gift-reservations', JSON.stringify(reservations), true);
@@ -400,8 +409,6 @@
       console.error('Storage error', e);
     }
     render();
-    const panel = document.getElementById('pix-' + id);
-    if(panel) panel.classList.add('show');
   }
 
   loadReservations();
