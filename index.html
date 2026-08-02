@@ -135,6 +135,23 @@
   }
   .btn[disabled]{opacity:0.55; cursor:default;}
 
+  .rsvp-field{margin-top:16px; text-align:left;}
+  .rsvp-label{
+    display:block; font-size:11px; letter-spacing:1.5px; text-transform:uppercase;
+    color:var(--gold); margin-bottom:6px;
+  }
+  .rsvp-input, .rsvp-textarea{
+    width:100%; background:rgba(255,255,255,0.04); border:1px solid rgba(201,162,92,0.4);
+    border-radius:10px; padding:12px 14px; font-size:14px; color:var(--ink);
+    font-family:'Montserrat',sans-serif;
+  }
+  .rsvp-input::placeholder, .rsvp-textarea::placeholder{color:rgba(251,248,241,0.4);}
+  .rsvp-input:focus, .rsvp-textarea:focus{outline:none; border-color:var(--gold);}
+  .rsvp-textarea{resize:vertical; min-height:60px;}
+  .rsvp-hint{font-size:11px; opacity:0.6; margin-top:5px;}
+  .rsvp-error{font-size:12px; color:var(--rose); margin-top:8px; display:none;}
+  .rsvp-error.show{display:block;}
+
   .photo-band{padding:0; position:relative;}
   .photo-band img{width:100%; display:block; max-height:520px; object-fit:cover; object-position:center 15%;}
   .photo-caption{
@@ -268,7 +285,20 @@
         </div>
       </div>
     </div>
-    <a class="btn btn-gold" href="https://wa.me/5581991951616?text=Ol%C3%A1!%20Confirmo%20presen%C3%A7a%20nos%2015%20anos%20da%20Milena%20%F0%9F%92%99%E2%9C%A8" target="_blank">Confirmar presença pelo WhatsApp</a>
+    <div class="card" style="margin-top:24px; text-align:center;">
+      <div class="detail-label" style="text-align:left; margin-bottom:4px;">Confirmação de presença</div>
+      <div class="rsvp-field">
+        <label class="rsvp-label">Nome e sobrenome</label>
+        <input type="text" id="rsvp-name" class="rsvp-input" placeholder="Seu nome completo">
+      </div>
+      <div class="rsvp-field">
+        <label class="rsvp-label">Acompanhantes</label>
+        <textarea id="rsvp-guests" class="rsvp-textarea" placeholder="Nomes de quem vai com você (se houver)"></textarea>
+        <div class="rsvp-hint">Deixe em branco se for sozinho(a)</div>
+      </div>
+      <div class="rsvp-error" id="rsvp-error">Por favor, preencha seu nome completo.</div>
+      <button class="btn btn-gold" onclick="sendRSVP()">Confirmar presença pelo WhatsApp</button>
+    </div>
   </section>
 
   <div class="photo-band">
@@ -297,6 +327,31 @@
 </div>
 
 <script>
+  function sendRSVP(){
+    const nameInput = document.getElementById('rsvp-name');
+    const guestsInput = document.getElementById('rsvp-guests');
+    const errorEl = document.getElementById('rsvp-error');
+    const name = nameInput.value.trim();
+    const guests = guestsInput.value.trim();
+
+    if(!name){
+      errorEl.classList.add('show');
+      nameInput.focus();
+      return;
+    }
+    errorEl.classList.remove('show');
+
+    let message = `Olá! Confirmo presença nos 15 anos da Milena 💙✨\n\nNome: ${name}`;
+    if(guests){
+      message += `\nAcompanhantes: ${guests}`;
+    } else {
+      message += `\nAcompanhantes: nenhum`;
+    }
+
+    const waText = encodeURIComponent(message);
+    window.open("https://wa.me/5581991951616?text=" + waText, "_blank");
+  }
+
   const target = new Date("2026-09-19T18:00:00-03:00").getTime();
   function tick(){
     const now = Date.now();
