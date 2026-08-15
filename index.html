@@ -439,12 +439,15 @@
     });
   }
 
+  const FIREBASE_DB_URL = "https://convite-milena-default-rtdb.firebaseio.com";
+
   async function loadReservations(){
     try{
-      const result = await window.storage.get('gift-reservations', true);
-      reservations = result ? JSON.parse(result.value) : {};
+      const res = await fetch(FIREBASE_DB_URL + '/gift-reservations.json');
+      const data = await res.json();
+      reservations = data || {};
     }catch(e){
-      reservations = {};
+      console.error('Firebase load error', e);
     }
     render();
   }
@@ -460,6 +463,15 @@
 
   async function confirmPayment(id){
     if(confirmedThisSession.has(id)) return;
+    // Re-fetch the latest data first, so we don't overwrite someone else's confirmation
+    try{
+      const res = await fetch(FIREBASE_DB_URL + '/gift-reservations.json');
+      const data = await res.json();
+      reservations = data || {};
+    }catch(e){
+      console.error('Firebase refresh error', e);
+    }
+
     const gift = GIFTS.find(g => g.id === id);
     const taken = reservations[id] || 0;
     if(taken >= gift.qty) { render(); return; } // already sold out, safety check
@@ -467,14 +479,20 @@
     confirmedThisSession.add(id);
     reservations[id] = taken + 1;
     try{
-      await window.storage.set('gift-reservations', JSON.stringify(reservations), true);
+      await fetch(FIREBASE_DB_URL + '/gift-reservations.json', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(reservations)
+      });
     }catch(e){
-      console.error('Storage error', e);
+      console.error('Firebase save error', e);
     }
     render();
   }
 
   loadReservations();
+  // Refresh from the server periodically so guests see live updates from others
+  setInterval(loadReservations, 20000);
 
   // ---------- Background music (royalty-free track, embedded directly) ----------
   const bgAudio = document.getElementById('bg-audio');
